@@ -45,11 +45,11 @@ save_clipboard_data (GtkSelectionData *content)
 		   not equal GDK_SELECTION_TYPE_ATOM (4). That's why gtk_selection_data_get_targets()
 		   fails. */
 
-		count = content->length / sizeof (Atom);
+		count = gtk_selection_data_get_length(content) / sizeof (Atom);
 		atoms = g_new0 (GdkAtom, count);
 
 		for (i = 0; i < count; i++)
-			atoms[i] = gdk_x11_xatom_to_atom ((Atom) content->data[i * sizeof (Atom)]);
+			atoms[i] = gdk_x11_xatom_to_atom ((Atom) gtk_selection_data_get_data(content)[i * sizeof (Atom)]);
 	    }
 
 	for (i = 0; i < count; i++)
@@ -76,8 +76,8 @@ clipboard_get_func (GtkClipboard *cb, GtkSelectionData *data, guint info, gpoint
 	SelectionDataEntry *data_entry;
 
 	data_entry = GINT_TO_POINTER ((guint) info);
-	gtk_selection_data_set (data, data_entry->data->type, data_entry->data->format,
-		data_entry->data->data, data_entry->data->length);
+	gtk_selection_data_set (data, gtk_selection_data_get_data_type(data_entry->data), gtk_selection_data_get_format(data_entry->data),
+		gtk_selection_data_get_data(data_entry->data), gtk_selection_data_get_length(data_entry->data));
 }
 
 
@@ -100,7 +100,7 @@ claim_clipboard ()
 	targets = selection_data_list_make_targets (clipboard_saved, &n_targets);
 	if (!gtk_clipboard_set_with_data (clipboard, targets, n_targets,
 	    clipboard_get_func, clipboard_clear_func, NULL))
-		gtk_timeout_add (1500, check_clipboard, NULL);
+		g_timeout_add (1500, check_clipboard, NULL);
 	g_free (targets);
 }
 
@@ -116,7 +116,7 @@ check_clipboard (gpointer reclaim)
 	if (content)
 	    {
 		gtk_selection_data_free (content);
-		gtk_timeout_add (1000, check_clipboard, NULL);
+		g_timeout_add (1000, check_clipboard, NULL);
 		return FALSE;
 	    }
 
@@ -127,9 +127,9 @@ check_clipboard (gpointer reclaim)
 		gboolean saved = FALSE;
 
 		/* Save the clipboard content and claim ownership */
-		name = gdk_atom_name (content->type);
+		name = gdk_atom_name (gtk_selection_data_get_data_type(content));
 		if (name && (strcmp (name, "ATOM") == 0
-		 || (strcmp (name, "TARGETS") == 0 && content->length > -1)))
+		 || (strcmp (name, "TARGETS") == 0 && gtk_selection_data_get_length(content) > -1)))
 			saved = save_clipboard_data (content);
 		else
 			g_print ("Unknown atom %s???\n", name);
@@ -139,7 +139,7 @@ check_clipboard (gpointer reclaim)
 			claim_clipboard ();
 		else
 			/* Saving failed; try again */
-			gtk_timeout_add (500, check_clipboard, NULL);
+			g_timeout_add (500, check_clipboard, NULL);
 	    }
 	else if (GPOINTER_TO_INT (reclaim))
 		/* We lost the clipboard ownership but the new clipboard doesn't have data.
@@ -148,7 +148,7 @@ check_clipboard (gpointer reclaim)
 		claim_clipboard ();
 	else
 		/* No clipboard data; try again in 500 msec */
-		gtk_timeout_add (500, check_clipboard, NULL);
+		g_timeout_add (500, check_clipboard, NULL);
 
 	return FALSE;
 }
@@ -164,7 +164,7 @@ clipboard_daemon_start ()
 	if (XGetSelectionOwner (gdk_x11_get_default_xdisplay (), gdk_x11_atom_to_xatom (daemon)) != None)
 	    {
 		/* Yes; try to start the daemon again in 3 seconds */
-		gtk_timeout_add (3000, (GtkFunction) clipboard_daemon_start, NULL);
+		g_timeout_add (3000, clipboard_daemon_start, NULL);
 		return FALSE;
 	    }
 

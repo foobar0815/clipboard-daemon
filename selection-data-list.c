@@ -87,7 +87,7 @@ selection_data_list_make_targets (SelectionDataList *list, guint *n_targets)
 		entries[i].target = data_entry->name;
 		entries[i].info = (guint) GPOINTER_TO_INT (data_entry);
 		if (data_entry->data)
-			entries[i].flags = (guint) data_entry->data->type;
+			entries[i].flags = (guint) gtk_selection_data_get_data_type(data_entry->data);
 		i++;
 	}
 	*n_targets = i;
